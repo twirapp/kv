@@ -4,7 +4,9 @@ import (
 	"errors"
 )
 
-var ErrInvalidType = errors.New("invalid type")
-var ErrValuerEmptySlice = errors.New("empty byte slice")
+var (
+	ErrInvalidType      = errors.New("invalid type")
+	ErrValuerEmptySlice = errors.New("empty byte slice")
+)
 
-var KeyNil = errors.New("key does not exist")
+var ErrKeyNil = errors.New("key does not exist")

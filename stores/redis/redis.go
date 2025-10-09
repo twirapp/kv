@@ -27,7 +27,7 @@ func (c *KvRedis) Get(ctx context.Context, key string) kv.Valuer {
 	result, err := c.r.Get(ctx, key).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return &kvvaluer.Valuer{Error: kv.KeyNil}
+			return &kvvaluer.Valuer{Error: kv.ErrKeyNil}
 		}
 		return &kvvaluer.Valuer{Error: err}
 	}
