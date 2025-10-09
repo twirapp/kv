@@ -108,3 +108,19 @@ func (c *KvRedis) ExistsMany(ctx context.Context, keys []string) ([]bool, error)
 
 	return results, nil
 }
+
+func (c *KvRedis) GetKeysByPattern(ctx context.Context, pattern string) ([]string, error) {
+	var keys []string
+
+	iter := c.r.Scan(ctx, 0, pattern, 0).Iterator()
+
+	for iter.Next(ctx) {
+		keys = append(keys, iter.Val())
+	}
+
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+
+	return keys, nil
+}

@@ -16,6 +16,7 @@ type KV interface {
 	// ExistsMany returns a slice of bools indicating whether each key exists.
 	// The order of the bools corresponds to the order of the keys provided.
 	ExistsMany(ctx context.Context, keys []string) ([]bool, error)
+	GetKeysByPattern(ctx context.Context, pattern string) ([]string, error)
 }
 
 type Valuer interface {
