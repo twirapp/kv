@@ -14,10 +14,10 @@ import (
 var _ kv.KV = (*KvRedis)(nil)
 
 type KvRedis struct {
-	r redis.Client
+	r *redis.Client
 }
 
-func New(r redis.Client) *KvRedis {
+func New(r *redis.Client) *KvRedis {
 	return &KvRedis{
 		r: r,
 	}
