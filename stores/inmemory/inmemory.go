@@ -1,15 +1,13 @@
 package kvinmemory
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
-	"encoding/json"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/twirapp/kv"
+	"github.com/twirapp/kv/internal/tobytes"
 	kvoptions "github.com/twirapp/kv/options"
 	kvvaluer "github.com/twirapp/kv/valuer"
 )
@@ -46,7 +44,7 @@ func (c *InMemory) Get(_ context.Context, key string) kv.Valuer {
 }
 
 func (c *InMemory) Set(_ context.Context, key string, value any, options ...kvoptions.Option) error {
-	b, err := toBytes(value)
+	b, err := tobytes.ToBytes(value)
 	if err != nil {
 		return err
 	}
@@ -68,7 +66,7 @@ func (c *InMemory) SetMany(_ context.Context, values []kv.SetMany) error {
 	defer c.mu.Unlock()
 
 	for _, v := range values {
-		b, err := toBytes(v.Value)
+		b, err := tobytes.ToBytes(v.Value)
 		if err != nil {
 			return err
 		}
@@ -96,11 +94,10 @@ func (c *InMemory) Delete(_ context.Context, key string) error {
 }
 
 func (c *InMemory) DeleteMany(ctx context.Context, keys []string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	for _, key := range keys {
-		delete(c.storage, key)
+		if err := c.Delete(ctx, key); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -144,29 +141,6 @@ func (c *InMemory) GetKeysByPattern(ctx context.Context, pattern string) ([]stri
 	}
 
 	return keys, nil
-}
-
-func toBytes(value any) ([]byte, error) {
-	switch v := value.(type) {
-	case []byte:
-		return v, nil
-	case string:
-		return []byte(v), nil
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
-		var buf bytes.Buffer
-		err := binary.Write(&buf, binary.BigEndian, v)
-		if err != nil {
-			return nil, err
-		}
-		return buf.Bytes(), nil
-	case bool:
-		if v {
-			return []byte{1}, nil
-		}
-		return []byte{0}, nil
-	default:
-		return json.Marshal(value)
-	}
 }
 
 func matchPattern(patternParts, keyParts []string) bool {
