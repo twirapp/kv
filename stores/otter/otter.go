@@ -68,10 +68,7 @@ func (c *Otter) SetMany(ctx context.Context, values []kv.SetMany) error {
 }
 
 func (c *Otter) Delete(ctx context.Context, key string) error {
-	_, ok := c.o.Invalidate(key)
-	if !ok {
-		return kv.ErrKeyNil
-	}
+	_, _ = c.o.Invalidate(key)
 
 	return nil
 }

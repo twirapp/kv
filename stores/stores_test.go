@@ -68,7 +68,7 @@ func TestStore_Delete(t *testing.T) {
 				ctx: context.Background(),
 				key: "nonexistent",
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 

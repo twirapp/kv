@@ -84,12 +84,8 @@ func (c *InMemory) SetMany(_ context.Context, values []kv.SetMany) error {
 func (c *InMemory) Delete(_ context.Context, key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	if _, ok := c.storage[key]; !ok {
-		return kv.ErrKeyNil
-	}
-
 	delete(c.storage, key)
+
 	return nil
 }
 

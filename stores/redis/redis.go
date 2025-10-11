@@ -61,14 +61,6 @@ func (c *KvRedis) SetMany(ctx context.Context, values []kv.SetMany) error {
 }
 
 func (c *KvRedis) Delete(ctx context.Context, key string) error {
-	exists, err := c.Exists(ctx, key)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return kv.ErrKeyNil
-	}
-
 	return c.r.Del(ctx, key).Err()
 }
 
