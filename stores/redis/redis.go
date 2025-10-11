@@ -61,6 +61,14 @@ func (c *KvRedis) SetMany(ctx context.Context, values []kv.SetMany) error {
 }
 
 func (c *KvRedis) Delete(ctx context.Context, key string) error {
+	exists, err := c.Exists(ctx, key)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return kv.ErrKeyNil
+	}
+
 	return c.r.Del(ctx, key).Err()
 }
 
@@ -98,7 +106,7 @@ func (c *KvRedis) ExistsMany(ctx context.Context, keys []string) ([]bool, error)
 	}
 
 	for i, cmd := range cmds {
-		exists, err := cmd.(*redis.StringCmd).Int()
+		exists, err := cmd.(*redis.IntCmd).Result()
 		if err != nil {
 			return nil, fmt.Errorf("error checking existence for key %s: %w", keys[i], err)
 		}
