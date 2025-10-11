@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/twirapp/kv"
+	"github.com/twirapp/kv/internal/matchpattern"
 	"github.com/twirapp/kv/internal/tobytes"
 	kvoptions "github.com/twirapp/kv/options"
 	kvvaluer "github.com/twirapp/kv/valuer"
@@ -131,23 +132,10 @@ func (c *InMemory) GetKeysByPattern(ctx context.Context, pattern string) ([]stri
 
 	for key := range c.storage {
 		keyParts := strings.Split(key, ":")
-		if matchPattern(patternParts, keyParts) {
+		if matchpattern.MatchPattern(patternParts, keyParts) {
 			keys = append(keys, key)
 		}
 	}
 
 	return keys, nil
-}
-
-func matchPattern(patternParts, keyParts []string) bool {
-	if len(patternParts) != len(keyParts) {
-		return false
-	}
-
-	for i := 0; i < len(patternParts); i++ {
-		if patternParts[i] != "*" && patternParts[i] != keyParts[i] {
-			return false
-		}
-	}
-	return true
 }

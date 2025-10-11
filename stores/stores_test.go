@@ -3,30 +3,83 @@ package stores
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 
+	"github.com/redis/go-redis/v9"
+	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 	"github.com/twirapp/kv"
 	kvinmemory "github.com/twirapp/kv/stores/inmemory"
 	kvotter "github.com/twirapp/kv/stores/otter"
+	kvredis "github.com/twirapp/kv/stores/redis"
 )
 
-var implementations = []struct {
-	name   string
-	create func() kv.KV
-}{
-	{
-		name: "InMemory",
-		create: func() kv.KV {
-			return kvinmemory.New()
+type redisContainer struct {
+	container *tcredis.RedisContainer
+	opts      *redis.Options
+}
+
+var (
+	redisContainers []redisContainer
+	implementations = []struct {
+		name   string
+		create func() kv.KV
+	}{
+		{
+			name: "InMemory",
+			create: func() kv.KV {
+				return kvinmemory.New()
+			},
 		},
-	},
-	{
-		name: "Otter",
-		create: func() kv.KV {
-			return kvotter.New()
+		{
+			name: "Otter",
+			create: func() kv.KV {
+				return kvotter.New()
+			},
 		},
-	},
+		{
+			name: "Redis",
+			create: func() kv.KV {
+				ctx := context.Background()
+				rc, err := tcredis.Run(ctx, "redis:7")
+				if err != nil {
+					fmt.Printf("Could not start redis container: %v\n", err)
+					os.Exit(1)
+				}
+				connString, err := rc.ConnectionString(ctx)
+				if err != nil {
+					fmt.Printf("Could not get redis connection string: %v\n", err)
+					os.Exit(1)
+				}
+				rOpts, err := redis.ParseURL(connString)
+				if err != nil {
+					fmt.Printf("Could not parse redis connection string: %v\n", err)
+					os.Exit(1)
+				}
+
+				redisContainers = append(redisContainers, redisContainer{
+					container: rc,
+					opts:      rOpts,
+				})
+
+				return kvredis.New(redis.NewClient(rOpts))
+			},
+		},
+	}
+)
+
+func TestMain(m *testing.M) {
+	// Run all the tests in the package
+	exitCode := m.Run()
+
+	for _, c := range redisContainers {
+		if err := c.container.Terminate(context.TODO()); err != nil {
+			fmt.Printf("Could not terminate redis container: %v\n", err)
+		}
+	}
+
+	os.Exit(exitCode)
 }
 
 func TestStore_Delete(t *testing.T) {
@@ -300,7 +353,7 @@ func TestStore_GetKeysByPattern(t *testing.T) {
 				"admin:1",
 				"user:profile:1",
 			},
-			want:    []string{"user:1", "user:2"},
+			want:    []string{"user:1", "user:2", "user:profile:1"},
 			wantErr: false,
 		},
 		{
