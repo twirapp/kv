@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
@@ -21,6 +22,7 @@ type redisContainer struct {
 }
 
 var (
+	redisCreateLock sync.Mutex
 	redisContainers []redisContainer
 	implementations = []struct {
 		name   string
@@ -58,10 +60,12 @@ var (
 					os.Exit(1)
 				}
 
+				redisCreateLock.Lock()
 				redisContainers = append(redisContainers, redisContainer{
 					container: rc,
 					opts:      rOpts,
 				})
+				redisCreateLock.Unlock()
 
 				return kvredis.New(redis.NewClient(rOpts))
 			},
@@ -73,11 +77,19 @@ func TestMain(m *testing.M) {
 	// Run all the tests in the package
 	exitCode := m.Run()
 
+	var wg sync.WaitGroup
+
 	for _, c := range redisContainers {
-		if err := c.container.Terminate(context.TODO()); err != nil {
-			fmt.Printf("Could not terminate redis container: %v\n", err)
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := c.container.Terminate(context.TODO()); err != nil {
+				fmt.Printf("Could not terminate redis container: %v\n", err)
+			}
+		}()
 	}
+
+	wg.Wait()
 
 	os.Exit(exitCode)
 }
