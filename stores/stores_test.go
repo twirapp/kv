@@ -8,10 +8,13 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/redis/go-redis/v9"
+	tcmemcached "github.com/testcontainers/testcontainers-go/modules/memcached"
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 	"github.com/twirapp/kv"
 	kvinmemory "github.com/twirapp/kv/stores/inmemory"
+	kvmemcached "github.com/twirapp/kv/stores/memcached"
 	kvotter "github.com/twirapp/kv/stores/otter"
 	kvredis "github.com/twirapp/kv/stores/redis"
 )
@@ -21,9 +24,18 @@ type redisContainer struct {
 	opts      *redis.Options
 }
 
+type memcachedContainer struct {
+	container *tcmemcached.Container
+	opts      *redis.Options
+}
+
 var (
 	redisCreateLock sync.Mutex
 	redisContainers []redisContainer
+
+	memcachedCreateLock sync.Mutex
+	memcachedContainers []memcachedContainer
+
 	implementations = []struct {
 		name   string
 		create func() kv.KV
@@ -70,6 +82,30 @@ var (
 				return kvredis.New(redis.NewClient(rOpts))
 			},
 		},
+		{
+			name: "Memcached",
+			create: func() kv.KV {
+				ctx := context.Background()
+				mc, err := tcmemcached.Run(ctx, "memcached:1.6")
+				if err != nil {
+					fmt.Printf("Could not start memcached container: %v\n", err)
+					os.Exit(1)
+				}
+				endpoint, err := mc.HostPort(ctx)
+				if err != nil {
+					fmt.Printf("Could not get memcached endpoint: %v\n", err)
+					os.Exit(1)
+				}
+
+				memcachedCreateLock.Lock()
+				memcachedContainers = append(memcachedContainers, memcachedContainer{
+					container: mc,
+				})
+				memcachedCreateLock.Unlock()
+
+				return kvmemcached.New(memcache.New(endpoint))
+			},
+		},
 	}
 )
 
@@ -77,19 +113,29 @@ func TestMain(m *testing.M) {
 	// Run all the tests in the package
 	exitCode := m.Run()
 
-	var wg sync.WaitGroup
-
+	var redisCleanUpWg sync.WaitGroup
 	for _, c := range redisContainers {
-		wg.Add(1)
+		redisCleanUpWg.Add(1)
 		go func() {
-			defer wg.Done()
+			defer redisCleanUpWg.Done()
 			if err := c.container.Terminate(context.TODO()); err != nil {
 				fmt.Printf("Could not terminate redis container: %v\n", err)
 			}
 		}()
 	}
+	redisCleanUpWg.Wait()
 
-	wg.Wait()
+	var memcachedCleanUpWg sync.WaitGroup
+	for _, c := range memcachedContainers {
+		memcachedCleanUpWg.Add(1)
+		go func() {
+			defer memcachedCleanUpWg.Done()
+			if err := c.container.Terminate(context.TODO()); err != nil {
+				fmt.Printf("Could not terminate memcached container: %v\n", err)
+			}
+		}()
+	}
+	memcachedCleanUpWg.Wait()
 
 	os.Exit(exitCode)
 }
@@ -443,6 +489,11 @@ func TestStore_GetKeysByPattern(t *testing.T) {
 
 	for _, impl := range implementations {
 		for _, tt := range tests {
+			if impl.name == "Memcached" {
+				// Skip Memcached as it does not support GetKeysByPattern
+				continue
+			}
+
 			t.Run(fmt.Sprintf("%s: %s", impl.name, tt.name), func(t *testing.T) {
 				c := impl.create()
 

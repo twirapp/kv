@@ -18,18 +18,21 @@ func BenchmarkGet(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		b.Run(impl.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				v := store.Get(ctx, key)
-				casted, err := v.String()
-				if err != nil {
-					b.Fatalf("failed to get value: %v", err)
-				}
 
-				if casted != value {
-					b.Fatalf("unexpected value: got %s, want %s", casted, value)
+		b.Run(impl.name, func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					v := store.Get(ctx, key)
+					casted, err := v.String()
+					if err != nil {
+						b.Fatalf("failed to get value: %v", err)
+					}
+
+					if casted != value {
+						b.Fatalf("unexpected value: got %s, want %s", casted, value)
+					}
 				}
-			}
+			})
 		})
 	}
 }
