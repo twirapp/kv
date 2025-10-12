@@ -101,11 +101,8 @@ func BenchmarkSet(b *testing.B) {
 
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
-
-					for i := 0; i < b.N; i++ {
-						if err := store.Set(ctx, fmt.Sprintf("%s:%s:%d", impl.name, key, i), value); err != nil {
-							b.Fatalf("failed to set value: %v", err)
-						}
+					if err := store.Set(ctx, fmt.Sprintf("%s:%s", impl.name, key), value); err != nil {
+						b.Fatalf("failed to set value: %v", err)
 					}
 				}
 			})
