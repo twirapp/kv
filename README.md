@@ -12,7 +12,7 @@ KV is a lightweight key-value storage solution built with Go, designed for simpl
 - Redis
 - Memcached
 - Valkey
-- Valkey glide.
+- Valkey glide
 
 ## Installation
 
