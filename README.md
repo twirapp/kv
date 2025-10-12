@@ -6,7 +6,13 @@ A key-value store implementation in Go.
 
 KV is a lightweight key-value storage solution built with Go, designed for simple and efficient data persistence.
 
-Is can use various backends. For now inmemory, otter, redis and memcached implemented.
+# Backends
+- InMemory
+- Otter
+- Redis
+- Memcached
+- Valkey
+- Valkey glide.
 
 ## Installation
 
