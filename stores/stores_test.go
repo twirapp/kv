@@ -23,6 +23,7 @@ import (
 	kvvalkey "github.com/twirapp/kv/stores/valkey"
 	glide "github.com/valkey-io/valkey-glide/go/v2"
 	glideconfig "github.com/valkey-io/valkey-glide/go/v2/config"
+	"github.com/valkey-io/valkey-go"
 )
 
 var (
@@ -137,6 +138,44 @@ var (
 				}
 
 				return kvvalkey.NewGlide(client)
+			},
+		},
+		{
+			name: "Valkey",
+			create: func() kv.KV {
+				ctx := context.Background()
+				vc, err := tcvalkey.Run(
+					ctx,
+					"valkey/valkey:latest",
+					tc.WithCmd("valkey-server", "--io-threads", "4"),
+				)
+				if err != nil {
+					fmt.Printf("Could not start valkey container: %v\n", err)
+					os.Exit(1)
+				}
+				connString, err := vc.ConnectionString(ctx)
+				if err != nil {
+					fmt.Printf("Could not get valkey connection string: %v\n", err)
+					os.Exit(1)
+				}
+
+				opts, err := valkey.ParseURL(connString)
+				if err != nil {
+					fmt.Printf("Could not parse valkey connection string: %v\n", err)
+					os.Exit(1)
+				}
+
+				containersLock.Lock()
+				containers = append(containers, vc)
+				containersLock.Unlock()
+
+				client, err := valkey.NewClient(opts)
+				if err != nil {
+					fmt.Printf("Could not create valkey glide client: %v\n", err)
+					os.Exit(1)
+				}
+
+				return kvvalkey.New(client)
 			},
 		},
 	}
