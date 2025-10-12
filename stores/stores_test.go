@@ -5,36 +5,29 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/redis/go-redis/v9"
+	tc "github.com/testcontainers/testcontainers-go"
 	tcmemcached "github.com/testcontainers/testcontainers-go/modules/memcached"
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
+	tcvalkey "github.com/testcontainers/testcontainers-go/modules/valkey"
 	"github.com/twirapp/kv"
 	kvinmemory "github.com/twirapp/kv/stores/inmemory"
 	kvmemcached "github.com/twirapp/kv/stores/memcached"
 	kvotter "github.com/twirapp/kv/stores/otter"
 	kvredis "github.com/twirapp/kv/stores/redis"
+	kvvalkey "github.com/twirapp/kv/stores/valkey"
+	glide "github.com/valkey-io/valkey-glide/go/v2"
+	glideconfig "github.com/valkey-io/valkey-glide/go/v2/config"
 )
 
-type redisContainer struct {
-	container *tcredis.RedisContainer
-	opts      *redis.Options
-}
-
-type memcachedContainer struct {
-	container *tcmemcached.Container
-	opts      *redis.Options
-}
-
 var (
-	redisCreateLock sync.Mutex
-	redisContainers []redisContainer
-
-	memcachedCreateLock sync.Mutex
-	memcachedContainers []memcachedContainer
+	containersLock sync.Mutex
+	containers     []tc.Container
 
 	implementations = []struct {
 		name   string
@@ -56,7 +49,11 @@ var (
 			name: "Redis",
 			create: func() kv.KV {
 				ctx := context.Background()
-				rc, err := tcredis.Run(ctx, "redis:7")
+				rc, err := tcredis.Run(
+					ctx,
+					"redis:8",
+					tc.WithCmd("redis-server", "--io-threads", "4"),
+				)
 				if err != nil {
 					fmt.Printf("Could not start redis container: %v\n", err)
 					os.Exit(1)
@@ -72,12 +69,9 @@ var (
 					os.Exit(1)
 				}
 
-				redisCreateLock.Lock()
-				redisContainers = append(redisContainers, redisContainer{
-					container: rc,
-					opts:      rOpts,
-				})
-				redisCreateLock.Unlock()
+				containersLock.Lock()
+				containers = append(containers, rc)
+				containersLock.Unlock()
 
 				return kvredis.New(redis.NewClient(rOpts))
 			},
@@ -97,13 +91,52 @@ var (
 					os.Exit(1)
 				}
 
-				memcachedCreateLock.Lock()
-				memcachedContainers = append(memcachedContainers, memcachedContainer{
-					container: mc,
-				})
-				memcachedCreateLock.Unlock()
+				containersLock.Lock()
+				containers = append(containers, mc)
+				containersLock.Unlock()
 
 				return kvmemcached.New(memcache.New(endpoint))
+			},
+		},
+		{
+			name: "Valkey Glide",
+			create: func() kv.KV {
+				ctx := context.Background()
+				vc, err := tcvalkey.Run(
+					ctx,
+					"valkey/valkey:latest",
+					tc.WithCmd("valkey-server", "--io-threads", "4"),
+				)
+				if err != nil {
+					fmt.Printf("Could not start valkey container: %v\n", err)
+					os.Exit(1)
+				}
+				connString, err := vc.ConnectionString(ctx)
+				if err != nil {
+					fmt.Printf("Could not get valkey connection string: %v\n", err)
+					os.Exit(1)
+				}
+
+				opts, err := glideconfig.NewByAddressRouteWithHost(strings.ReplaceAll(connString, "redis://", ""))
+				if err != nil {
+					fmt.Printf("Could not parse valkey connection string: %v\n", err)
+					os.Exit(1)
+				}
+
+				containersLock.Lock()
+				containers = append(containers, vc)
+				containersLock.Unlock()
+
+				client, err := glide.NewClient(glideconfig.NewClientConfiguration().WithAddress(&glideconfig.NodeAddress{
+					Host: opts.Host,
+					Port: int(opts.Port),
+				}))
+				if err != nil {
+					fmt.Printf("Could not create valkey glide client: %v\n", err)
+					os.Exit(1)
+				}
+
+				return kvvalkey.NewGlide(client)
 			},
 		},
 	}
@@ -113,29 +146,16 @@ func TestMain(m *testing.M) {
 	// Run all the tests in the package
 	exitCode := m.Run()
 
-	var redisCleanUpWg sync.WaitGroup
-	for _, c := range redisContainers {
-		redisCleanUpWg.Add(1)
+	var clearUpWg sync.WaitGroup
+	for _, c := range containers {
+		clearUpWg.Add(1)
 		go func() {
-			defer redisCleanUpWg.Done()
-			if err := c.container.Terminate(context.TODO()); err != nil {
+			defer clearUpWg.Done()
+			if err := c.Terminate(context.TODO()); err != nil {
 				fmt.Printf("Could not terminate redis container: %v\n", err)
 			}
 		}()
 	}
-	redisCleanUpWg.Wait()
-
-	var memcachedCleanUpWg sync.WaitGroup
-	for _, c := range memcachedContainers {
-		memcachedCleanUpWg.Add(1)
-		go func() {
-			defer memcachedCleanUpWg.Done()
-			if err := c.container.Terminate(context.TODO()); err != nil {
-				fmt.Printf("Could not terminate memcached container: %v\n", err)
-			}
-		}()
-	}
-	memcachedCleanUpWg.Wait()
 
 	os.Exit(exitCode)
 }
