@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/maypok86/otter/v2"
 	"github.com/twirapp/kv"
@@ -17,11 +16,7 @@ import (
 var _ kv.KV = (*Otter)(nil)
 
 func New() *Otter {
-	cache := otter.Must(&otter.Options[string, []byte]{
-		MaximumSize:       10_000,
-		ExpiryCalculator:  otter.ExpiryAccessing[string, []byte](time.Second),           // Reset timer on reads/writes
-		RefreshCalculator: otter.RefreshWriting[string, []byte](500 * time.Millisecond), // Refresh after writes
-	})
+	cache := otter.Must(&otter.Options[string, []byte]{})
 
 	return &Otter{o: cache}
 }
@@ -39,7 +34,7 @@ func (c *Otter) Get(_ context.Context, key string) kv.Valuer {
 	return &kvvaluer.Valuer{Value: v}
 }
 
-func (c *Otter) Set(ctx context.Context, key string, value any, options ...kvoptions.Option) error {
+func (c *Otter) Set(_ context.Context, key string, value any, options ...kvoptions.Option) error {
 	b, err := tobytes.ToBytes(value)
 	if err != nil {
 		return err
@@ -68,7 +63,7 @@ func (c *Otter) SetMany(ctx context.Context, values []kv.SetMany) error {
 	return nil
 }
 
-func (c *Otter) Delete(ctx context.Context, key string) error {
+func (c *Otter) Delete(_ context.Context, key string) error {
 	_, _ = c.o.Invalidate(key)
 
 	return nil
@@ -84,12 +79,12 @@ func (c *Otter) DeleteMany(ctx context.Context, keys []string) error {
 	return nil
 }
 
-func (c *Otter) Exists(ctx context.Context, key string) (bool, error) {
+func (c *Otter) Exists(_ context.Context, key string) (bool, error) {
 	_, ok := c.o.GetIfPresent(key)
 	return ok, nil
 }
 
-func (c *Otter) ExistsMany(ctx context.Context, keys []string) ([]bool, error) {
+func (c *Otter) ExistsMany(_ context.Context, keys []string) ([]bool, error) {
 	results := make([]bool, len(keys))
 	for i, key := range keys {
 		_, ok := c.o.GetIfPresent(key)
@@ -99,7 +94,7 @@ func (c *Otter) ExistsMany(ctx context.Context, keys []string) ([]bool, error) {
 	return results, nil
 }
 
-func (c *Otter) GetKeysByPattern(ctx context.Context, pattern string) ([]string, error) {
+func (c *Otter) GetKeysByPattern(_ context.Context, pattern string) ([]string, error) {
 	var (
 		keys         []string
 		patternParts = strings.Split(pattern, ":")
