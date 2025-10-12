@@ -41,6 +41,14 @@ func (c *InMemory) Get(_ context.Context, key string) kv.Valuer {
 		return &kvvaluer.Valuer{Error: kv.ErrKeyNil}
 	}
 
+	if v.expire > 0 && time.Since(time.Unix(0, 0)) > v.expire {
+		c.mu.Lock()
+		delete(c.storage, key)
+		c.mu.Unlock()
+
+		return &kvvaluer.Valuer{Error: kv.ErrKeyNil}
+	}
+
 	return &kvvaluer.Valuer{Value: v.value}
 }
 
