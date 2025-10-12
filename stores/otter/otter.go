@@ -40,8 +40,8 @@ func (c *Otter) Set(_ context.Context, key string, value any, options ...kvoptio
 		return err
 	}
 
-	_, ok := c.o.Set(key, b)
-	if !ok {
+	v, ok := c.o.Set(key, b)
+	if !ok && v == nil {
 		return fmt.Errorf("failed to set value for key %s", key)
 	}
 
