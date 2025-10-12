@@ -87,24 +87,28 @@ func BenchmarkGet(b *testing.B) {
 	}
 }
 
-//func BenchmarkSet(b *testing.B) {
-//	for _, impl := range implementations {
-//		if impl.name == "Redis" {
-//			// Skip Redis benchmark for now
-//			continue
-//		}
-//
-//		store := impl.create()
-//		key := "test_key"
-//		value := "test_value"
-//
-//		b.ResetTimer()
-//		b.Run(impl.name, func(b *testing.B) {
-//			for i := 0; i < b.N; i++ {
-//				if err := store.Set(nil, fmt.Sprintf("%s:%s:%d", impl.name, key, i), value); err != nil {
-//					b.Fatalf("failed to set value: %v", err)
-//				}
-//			}
-//		})
-//	}
-//}
+func BenchmarkSet(b *testing.B) {
+	impls := append(implementations, additionalBenchImplementations...)
+
+	for _, impl := range impls {
+		store := impl.create()
+		key := "test_key"
+		value := "test_value"
+
+		b.ResetTimer()
+		b.Run(impl.name, func(b *testing.B) {
+			ctx := context.Background()
+
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+
+					for i := 0; i < b.N; i++ {
+						if err := store.Set(ctx, fmt.Sprintf("%s:%s:%d", impl.name, key, i), value); err != nil {
+							b.Fatalf("failed to set value: %v", err)
+						}
+					}
+				}
+			})
+		})
+	}
+}

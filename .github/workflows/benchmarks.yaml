@@ -15,5 +15,8 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
-      - name: Run benches
-        run: make bench
+      - name: Run GET benches
+        run: make benchget
+
+      - name: Run SET benches
+        run: make benchset
