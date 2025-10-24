@@ -4,19 +4,72 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
 	tc "github.com/testcontainers/testcontainers-go"
+	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/twirapp/kv"
 	kvredis "github.com/twirapp/kv/stores/redis"
+	kvvalkey "github.com/twirapp/kv/stores/valkey"
+	glide "github.com/valkey-io/valkey-glide/go/v2"
+	glideconfig "github.com/valkey-io/valkey-glide/go/v2/config"
 )
 
 var additionalBenchImplementations = []struct {
 	name   string
 	create func() kv.KV
 }{
+	{
+		name: "Redis-Glide",
+		create: func() kv.KV {
+			ctx := context.Background()
+			rc, err := tcredis.Run(
+				ctx,
+				"redis:8",
+				tc.WithCmd("redis-server", "--io-threads", "4"),
+			)
+			if err != nil {
+				fmt.Printf("Could not start redis container: %v\n", err)
+				os.Exit(1)
+			}
+			connString, err := rc.ConnectionString(ctx)
+			if err != nil {
+				fmt.Printf("Could not get redis connection string: %v\n", err)
+				os.Exit(1)
+			}
+			rOpts, err := redis.ParseURL(connString)
+			if err != nil {
+				fmt.Printf("Could not parse redis connection string: %v\n", err)
+				os.Exit(1)
+			}
+
+			containersLock.Lock()
+			containers = append(containers, rc)
+			containersLock.Unlock()
+
+			addr := strings.Split(rOpts.Addr, ":")
+
+			port, err := strconv.Atoi(addr[1])
+			if err != nil {
+				panic(err)
+			}
+
+			client, err := glide.NewClient(glideconfig.NewClientConfiguration().WithAddress(&glideconfig.NodeAddress{
+				Host: addr[0],
+				Port: port,
+			}))
+			if err != nil {
+				fmt.Printf("Could not create valkey glide client: %v\n", err)
+				os.Exit(1)
+			}
+
+			return kvvalkey.NewGlide(client)
+		},
+	},
 	{
 		name: "Dragonfly (redis client)",
 		create: func() kv.KV {

@@ -65,22 +65,26 @@ func doSomeWork(storage kv.KV) {
 
 ```
 cpu: AMD Ryzen 5 5600 6-Core Processor
-BenchmarkGet/InMemory-12 30565016 35.76 ns/op
-BenchmarkGet/Otter-12 49937456 23.78 ns/op
-BenchmarkGet/Redis-12 93295 15257 ns/op
-BenchmarkGet/Memcached-12 92832 13554 ns/op
-BenchmarkGet/Valkey_Glide-12 131566 8749 ns/op
-BenchmarkGet/Valkey-12 104168 11323 ns/op
+BenchmarkGet/InMemory-12                32833582                36.89 ns/op
+BenchmarkGet/Otter-12                   43721808                25.31 ns/op
+BenchmarkGet/Redis-12                      90266             13027 ns/op
+BenchmarkGet/Memcached-12                  99343             13220 ns/op
+BenchmarkGet/Valkey_Glide-12              143864              8541 ns/op
+BenchmarkGet/Valkey-12                    117400             10261 ns/op
+BenchmarkGet/Redis-Glide-12               129991              9679 ns/op
+BenchmarkGet/Dragonfly_(redis_client)-12                   55845             19551 ns/op
 ```
 
 ### Set
 
 ```
 cpu: AMD Ryzen 5 5600 6-Core Processor
-BenchmarkSet/InMemory-12                 5751238               208.3 ns/op
-BenchmarkSet/Otter-12                    4138132               290.2 ns/op
-BenchmarkSet/Redis-12                      78825             14400 ns/op
-BenchmarkSet/Memcached-12                  73033             15546 ns/op
-BenchmarkSet/Valkey_Glide-12              125948              9242 ns/op
-BenchmarkSet/Valkey-12                    119925             10249 ns/op
+BenchmarkSet/InMemory-12                 5903462               203.9 ns/op
+BenchmarkSet/Otter-12                    4391866               281.6 ns/op
+BenchmarkSet/Redis-12                      80160             13843 ns/op
+BenchmarkSet/Memcached-12                  78168             15544 ns/op
+BenchmarkSet/Valkey_Glide-12              130809              9455 ns/op
+BenchmarkSet/Valkey-12                    118170             10083 ns/op
+BenchmarkSet/Redis-Glide-12               113458              9772 ns/op
+BenchmarkSet/Dragonfly_(redis_client)-12                   73546             16483 ns/op
 ```
